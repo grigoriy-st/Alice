@@ -1,25 +1,15 @@
 #!/bin/bash
 
-# Exit early on errors
+# Упрощенный скрипт для Glitch
 set -eu
 
-# Python buffers stdout. Without this, you won't see what you "print" in the Activity Logs
+# Отключаем буферизацию вывода Python
 export PYTHONUNBUFFERED=true
 
-# Install Python 3 virtual env
-VIRTUALENV=./venv
-
-if [ ! -d $VIRTUALENV ]; then
-  python3 -m venv $VIRTUALENV
+# Проверяем наличие requirements.txt и устанавливаем зависимости
+if [ -f "requirements.txt" ]; then
+    pip install -r requirements.txt
 fi
 
-# Install pip into virtual environment
-if [ ! -f $VIRTUALENV/bin/pip ]; then
-  curl --silent --show-error --retry 5 https://bootstrap.pypa.io/pip/3.7/get-pip.py | $VIRTUALENV/bin/python
-fi
-
-# Install the requirements
-$VIRTUALENV/bin/pip install -r requirements.txt
-
-# Run your glorious application
-$VIRTUALENV/bin/python3 server.py
+# Запускаем приложение напрямую, без виртуального окружения
+python3 server.py
