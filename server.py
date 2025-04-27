@@ -5,6 +5,21 @@ import random
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
 
+city_geo_info = {
+    'москва': {
+        'country': 'Россия',
+        'coordinates': [55.7558, 37.6173]
+    },
+    'нью-йорк': {
+        'country': 'США',
+        'coordinates': [40.7128, -74.0060]
+    },
+    'париж': {
+        'country': 'Франция',
+        'coordinates': [48.8566, 2.3522]
+    }
+}
+
 cities = {
     'москва': ['1652229/a4629d09fcc37c13bca7',
                '1030494/d76924726c2bbace0a9e'],
@@ -15,6 +30,13 @@ cities = {
 }
 
 sessionStorage = {}
+
+def get_geo_info(city_name, type_info):
+    city_data = city_geo_info.get(city_name.lower())
+    if not city_data:
+        return None
+    
+    return city_data.get(type_info)
 
 @app.route('/post', methods=['POST'])
 def main():
@@ -38,26 +60,6 @@ def handle_dialog(res, req):
         sessionStorage[user_id] = {
             'first_name': None
         }
-        res['response']['buttons'] = [
-            {
-                'title': 'Помощь',
-                'hide': True
-            }
-        ]
-        return
-
-    if 'помощь' in req['request']['original_utterance'].lower():
-        res['response']['text'] = 'Это игра "Угадай город". Назови город, и я покажу его фотографию.'
-        res['response']['buttons'] = [
-            {
-                'title': city.title(),
-                'hide': True
-            } for city in cities
-        ]
-        res['response']['buttons'].append({
-            'title': 'Помощь',
-            'hide': True
-        })
         return
 
     if sessionStorage[user_id]['first_name'] is None:
@@ -73,10 +75,6 @@ def handle_dialog(res, req):
                     'hide': True
                 } for city in cities
             ]
-            res['response']['buttons'].append({
-                'title': 'Помощь',
-                'hide': True
-            })
     else:
         city = get_city(req)
         if city in cities:
@@ -84,19 +82,9 @@ def handle_dialog(res, req):
             res['response']['card']['type'] = 'BigImage'
             res['response']['card']['title'] = 'Этот город я знаю.'
             res['response']['card']['image_id'] = random.choice(cities[city])
-            res['response']['text'] = 'Я угадал!'
+            res['response']['text'] = f'Я угадал! Страна: {get_geo_info(city, "country")}'
         else:
             res['response']['text'] = 'Первый раз слышу об этом городе. Попробуй еще разок!'
-        res['response']['buttons'] = [
-            {
-                'title': city.title(),
-                'hide': True
-            } for city in cities
-        ]
-        res['response']['buttons'].append({
-            'title': 'Помощь',
-            'hide': True
-        })
 
 def get_city(req):
     for entity in req['request']['nlu']['entities']:
