@@ -1,42 +1,56 @@
 from flask import Flask, request, jsonify
 import logging
-import json
 import random
 
 app = Flask(__name__)
-
 logging.basicConfig(level=logging.INFO)
 
-# создаем словарь, в котором ключ — название города,
-# а значение — массив, где перечислены id картинок,
-# которые мы записали в прошлом пункте.
-
-cities = {
-    'москва': ['1652229/a4629d09fcc37c13bca7',
-               '1030494/d76924726c2bbace0a9e'],
-    'нью-йорк': ['14236656/4428ffdd86811a8ae6f1',
-                 '1652229/65fe6a05702c79bed750'],
-    'париж': ["1652229/6fc396e8daaf170ce1f7",
-              '1652229/65fe6a05702c79bed750']
+animal_phrases = {
+    'слон': {
+        'куплю': 'Хорошо, вот реквизиты для перевода слона!',
+        'зачем': 'Чтобы было чем гордиться!',
+        'не поместится': 'Зато соседи завидовать будут!',
+        'нет денег': 'Продай ноутбук и купи слона!',
+        'не нужен': 'Ты просто не понимаешь своего счастья!',
+        'что ест': 'Всё! Особенно тех, кто не покупает слонов!',
+        'где держать': 'В шкафу! Или в ванной...',
+        'дорого': 'Зато потом скажешь: "У меня есть слон!"',
+        'передумал': 'Слоны не любят нытиков!',
+        'ладно': 'Вот и умница! Теперь купи кролика!',
+        'нет': [
+            'Нет — это всего лишь слово! Купи слона!',
+            'Слоны не любят слово "нет"!',
+            'А если слон скажет тебе "нет"?',
+            'Нет? Значит, купишь двух слонов!'
+        ]
+    },
+    'кролик': {
+        'куплю': 'Отлично, вот реквизиты для кролика!',
+        'зачем': 'Чтобы было с кем пить чай!',
+        'не поместится': 'Он же маленький!',
+        'нет денег': 'Продай телефон и купи кролика!',
+        'не нужен': 'Как ты будешь жить без кролика?',
+        'что ест': 'Морковку и твои сомнения!',
+        'где держать': 'В клетке или в тапке!',
+        'дорого': 'Зато пушистый!',
+        'передумал': 'Кролики обижаются!',
+        'ладно': 'Молодец! Теперь купи слона!',
+        'нет': [
+            'Нет? А кто будет есть морковку?',
+            'Кролики не принимают "нет"!',
+            'Скажешь нет — купишь двух!'
+        ]
+    }
 }
 
-# создаем словарь, где для каждого пользователя
-# мы будем хранить его имя
+available_phrases = ['куплю', 'покупаю', 'хорошо', 'ладно', 'я куплю', 'я покупаю']
+
 sessionStorage = {}
-
-@app.route('/')
-def get_start_text():
-    return jsonify({
-        'response': {
-            'text': 'Hello'
-        },
-        'version': '1.0',
-    })
-
 
 @app.route('/post', methods=['POST'])
 def main():
     logging.info(f'Request: {request.json!r}')
+    
     response = {
         'session': request.json['session'],
         'version': request.json['version'],
@@ -44,88 +58,63 @@ def main():
             'end_session': False
         }
     }
+    
     handle_dialog(response, request.json)
     logging.info(f'Response: {response!r}')
-    return jsonify(response)
 
+    return jsonify(response)
 
 def handle_dialog(res, req):
     user_id = req['session']['user_id']
-
-    # если пользователь новый, то просим его представиться.
+    
     if req['session']['new']:
-        res['response']['text'] = 'Привет! Назови свое имя!'
-        # создаем словарь в который в будущем положим имя пользователя
+        res['response']['text'] = 'Привет! Купи слона!'
         sessionStorage[user_id] = {
-            'first_name': None
+            'current_animal': 'слон',
+            'next_animal': 'кролик'
         }
         return
-    # если пользователь не новый, то попадаем сюда.
-    # если поле имени пустое, то это говорит о том,
-    # что пользователь еще не представился.
-    if sessionStorage[user_id]['first_name'] is None:
-        # в последнем его сообщение ищем имя.
-        first_name = get_first_name(req)
-        # если не нашли, то сообщаем пользователю что не расслышали.
-        if first_name is None:
-            res['response']['text'] = \
-                'Не расслышала имя. Повтори, пожалуйста!'
-        # если нашли, то приветствуем пользователя.
-        # И спрашиваем какой город он хочет увидеть.
-        else:
-            sessionStorage[user_id]['first_name'] = first_name
-            res['response'][
-                'text'] = 'Приятно познакомиться, ' \
-                          + first_name.title() \
-                          + '. Я - Алиса. Какой город хочешь увидеть?'
-            # получаем варианты buttons из ключей нашего словаря cities
-            res['response']['buttons'] = [
-                {
-                    'title': city.title(),
-                    'hide': True
-                } for city in cities
-            ]
-    # если мы знакомы с пользователем и он нам что-то написал,
-    # то это говорит о том, что он уже говорит о городе,
-    # что хочет увидеть.
+    
+    user_text = req['request']['original_utterance'].lower()
+    current_animal = sessionStorage[user_id]['current_animal']
+    phrases = animal_phrases[current_animal]
+    
+    if user_phrase_in_available_phrases(user_text):
+        res['response']['text'] = phrases['куплю']
+        next_animal = 'слон' if current_animal == 'кролик' else 'кролик'
+        res['response']['text'] += f' Теперь купи {next_animal}!'
+        sessionStorage[user_id] = {
+            'current_animal': next_animal,
+            'next_animal': 'слон' if next_animal == 'кролик' else 'кролик'
+        }
     else:
-        # ищем город в сообщение от пользователя
-        city = get_city(req)
-        # если этот город среди известных нам,
-        # то показываем его (выбираем одну из двух картинок случайно)
-        if city in cities:
-            res['response']['card'] = {}
-            res['response']['card']['type'] = 'BigImage'
-            res['response']['card']['title'] = 'Этот город я знаю.'
-            res['response']['card']['image_id'] = random.choice(cities[city])
-            res['response']['text'] = 'Я угадал!'
-        # если не нашел, то отвечает пользователю
-        # 'Первый раз слышу об этом городе.'
-        else:
-            res['response']['text'] = \
-                'Первый раз слышу об этом городе. Попробуй еще разок!'
+        response_text = None
+        for phrase in phrases:
+            if phrase in user_text:
+                if isinstance(phrases[phrase], list):
+                    response_text = random.choice(phrases[phrase])
+                else:
+                    response_text = phrases[phrase]
+                break
+        
+        if not response_text:
+            if "нет" in user_text:
+                response_text = random.choice(phrases["нет"])
+            else:
+                response_text = f"Всё равно купи {current_animal}!"
+        
+        res['response']['text'] = response_text
+    
+    res['response']['buttons'] = [
+        {'title': phrase.capitalize(), 'hide': True} 
+        for phrase in random.sample(list(phrases.keys()), min(5, len(phrases)))
+    ]
 
-
-def get_city(req):
-    # перебираем именованные сущности
-    for entity in req['request']['nlu']['entities']:
-        # если тип YANDEX.GEO то пытаемся получить город(city),
-        # если нет, то возвращаем None
-        if entity['type'] == 'YANDEX.GEO':
-            # возвращаем None, если не нашли сущности с типом YANDEX.GEO
-            return entity['value'].get('city', None)
-
-
-def get_first_name(req):
-    # перебираем сущности
-    for entity in req['request']['nlu']['entities']:
-        # находим сущность с типом 'YANDEX.FIO'
-        if entity['type'] == 'YANDEX.FIO':
-            # Если есть сущность с ключом 'first_name',
-            # то возвращаем ее значение.
-            # Во всех остальных случаях возвращаем None.
-            return entity['value'].get('first_name', None)
-
+def user_phrase_in_available_phrases(user_phrase):
+    for phrase in available_phrases:
+        if phrase in user_phrase:
+            return True
+    return False
 
 if __name__ == '__main__':
     app.run()
