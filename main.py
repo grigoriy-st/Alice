@@ -24,6 +24,15 @@ cities = {
 # мы будем хранить его имя
 sessionStorage = {}
 
+@app.route('/')
+def get_start_text():
+    return jsonify({
+        'response': {
+            'text': 'Hello'
+        },
+        'version': '1.0',
+    })
+
 
 @app.route('/post', methods=['POST'])
 def main():
